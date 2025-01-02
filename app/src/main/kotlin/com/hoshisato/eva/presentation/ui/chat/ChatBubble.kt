@@ -231,9 +231,18 @@ private fun setLanguageAndVoice(tts: TextToSpeech?) {
     // tts.setVoice(selectedVoice); //Remove this line of code
 }
 
-private fun convertTextToSpeech(text: String, tts: TextToSpeech?) {
+/*private fun convertTextToSpeech(text: String, tts: TextToSpeech?) {
     if (tts != null) {
         tts.speak(text, TextToSpeech.QUEUE_FLUSH, null, null)
+    }
+}*/
+private fun convertTextToSpeech(text: String, tts: TextToSpeech?) {
+    if (tts != null) {
+        if (tts.isSpeaking) {
+            tts.stop() // **Stop TTS if it's currently speaking**
+        } else {
+            tts.speak(text, TextToSpeech.QUEUE_FLUSH, null, null) // Start TTS if not speaking
+        }
     }
 }
 
