@@ -300,17 +300,6 @@ fun ChatScreen(
     }
 }
 
-/*private fun checkAICoreAvailability(aiCore: PackageInfo?, privateComputeServices: PackageInfo?): Boolean {
-    aiCore ?: return false
-    privateComputeServices ?: return false
-    val privateComputeMinVersion = "1.0.release.658389993"
-
-    val aiCoreCondition = aiCore.versionName?.contains("thirdpartyeap") == true
-    val privateComputeCondition = (privateComputeServices.versionName ?: "").padEnd(privateComputeMinVersion.length, '0') > privateComputeMinVersion
-
-    return aiCoreCondition && privateComputeCondition
-}*/
-
 private fun groupMessages(messages: List<Message>): HashMap<Int, MutableList<Message>> {
     val classifiedMessages = hashMapOf<Int, MutableList<Message>>()
     var counter = 0
@@ -342,7 +331,7 @@ private fun groupMessages(messages: List<Message>): HashMap<Int, MutableList<Mes
 @OptIn(ExperimentalMaterial3Api::class)
 private fun ChatTopBar(
     title: String,
-    isChatTitleUpdateEnabled: Boolean,
+    isMenuItemEnabled: Boolean,
     onBackAction: () -> Unit,
     scrollBehavior: TopAppBarScrollBehavior,
     onChatTitleItemClick: () -> Unit,
@@ -368,7 +357,7 @@ private fun ChatTopBar(
 
             ChatDropdownMenu(
                 isDropDownMenuExpanded = isDropDownMenuExpanded,
-                isChatTitleUpdateEnabled = isChatTitleUpdateEnabled,
+                isMenuItemEnabled = isMenuItemEnabled,
                 onDismissRequest = { isDropDownMenuExpanded = false },
                 onChatTitleItemClick = {
                     onChatTitleItemClick.invoke()
@@ -384,7 +373,7 @@ private fun ChatTopBar(
 @Composable
 fun ChatDropdownMenu(
     isDropDownMenuExpanded: Boolean,
-    isChatTitleUpdateEnabled: Boolean,
+    isMenuItemEnabled: Boolean,
     onDismissRequest: () -> Unit,
     onChatTitleItemClick: () -> Unit,
     onExportChatItemClick: () -> Unit
@@ -395,12 +384,13 @@ fun ChatDropdownMenu(
         onDismissRequest = onDismissRequest
     ) {
         DropdownMenuItem(
-            enabled = isChatTitleUpdateEnabled,
+            enabled = isMenuItemEnabled,
             text = { Text(text = stringResource(R.string.update_chat_title)) },
             onClick = onChatTitleItemClick
         )
         /* Export Chat */
         DropdownMenuItem(
+            enabled = isMenuItemEnabled,
             text = { Text(text = stringResource(R.string.export_chat)) },
             onClick = {
                 onExportChatItemClick()

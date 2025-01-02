@@ -5,7 +5,7 @@ package com.hoshisato.eva.presentation.ui.chat
 import android.content.Intent
 import android.util.Log
 import android.app.Application
-import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -26,11 +26,11 @@ import kotlinx.coroutines.launch
 
 @HiltViewModel
 class ChatViewModel @Inject constructor(
-    application: Application,
+    private val application: Application,
     savedStateHandle: SavedStateHandle,
     private val chatRepository: ChatRepository,
     private val settingRepository: SettingRepository
-) : AndroidViewModel(application) {
+) : ViewModel() {
 
     sealed class LoadingState {
         data object Idle : LoadingState()
@@ -200,7 +200,7 @@ class ChatViewModel @Inject constructor(
     }
 
     fun exportChat() {
-        val context = getApplication<Application>().applicationContext
+        val context = application.applicationContext
 
         // Build the chat history in Markdown format
         val chatHistoryMarkdown = buildString {
@@ -226,7 +226,8 @@ class ChatViewModel @Inject constructor(
         file.writeText(chatHistoryMarkdown)
 
         // Share the file
-        val uri = androidx.core.content.FileProvider.getUriForFile(context, "com.hoshisato.eva", file)
+        // https://stackoverflow.com/questions/56598480/couldnt-find-meta-data-for-provider-with-authority
+        val uri = androidx.core.content.FileProvider.getUriForFile(context, "com.hoshisato.eva" + ".fileprovider", file)
         val shareIntent = Intent(Intent.ACTION_SEND).apply {
             type = "text/markdown"
             putExtra(Intent.EXTRA_STREAM, uri)
