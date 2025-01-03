@@ -124,24 +124,20 @@ class ChatViewModel @Inject constructor(
     }
 
     fun handleImageSelection(uri: Uri) {
+        Log.d("handleImageSelection", "handleImageSelection called with uri: $uri")
         // Accessing the application context for content resolver
         val context = application.applicationContext
-
         try {
             // Retrieve the input stream from the URI
             val inputStream = context.contentResolver.openInputStream(uri)
-
             if (inputStream != null) {
                 // Convert the stream to ByteArray
                 val byteArray = inputStream.readBytes()
                 inputStream.close()
-
                 // Encode the ByteArray to base64
                 val base64Image = Base64.encodeToString(byteArray, Base64.DEFAULT)
-
                 // **Get the MIME type**
                 val mimeType = context.contentResolver.getType(uri) ?: "image/jpeg"  // Default to jpeg if null
-
                 // Update the user message with the base64 image and the correct mime type
                 _userMessage.update {
                     it.copy(
@@ -149,6 +145,9 @@ class ChatViewModel @Inject constructor(
                         createdAt = currentTimeStamp
                     )
                 }
+
+                // Update the image string
+                _imageString.update { base64Image }
 
                 // Handle the base64 image
                 Log.d("Base64 Image", "Base64 string: $base64Image")
@@ -310,7 +309,7 @@ class ChatViewModel @Inject constructor(
         val questionWithImage = if (currentImageString.isNotBlank()) {
             _userMessage.value.content + "\n[IMAGE]" + currentImageString
         } else {
-            _userMessage.value.content
+            _userMessage.value.content + "Missing image"
         }
         _userMessage.update { it.copy(content = questionWithImage) }
         //Reset the image string to avoid sending the same image

@@ -138,7 +138,7 @@ fun ChatScreen(
 
     val context = LocalContext.current
     var base64String by remember { mutableStateOf("") }
-    val pickImageLauncher = rememberLauncherForActivityResult(
+/*    val pickImageLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
         if (result.resultCode == Activity.RESULT_OK) {
@@ -147,7 +147,21 @@ fun ChatScreen(
                 chatViewModel.handleImageSelection(uri)
             }
         }
-    }
+    }*/
+/*    val pickImageLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            val imageUri = result.data?.data
+            imageUri?.let { uri ->
+                val inputStream = context.contentResolver.openInputStream(uri)
+                val bitmap = BitmapFactory.decodeStream(inputStream)
+                base64String = bitmapToBase64(bitmap)
+                Toast.makeText(context, "Image Selected", Toast.LENGTH_SHORT).show()
+                // You can now send the base64String to the chat or pass it to the chatViewModel
+            }
+        }else {
+            Toast.makeText(context, "Image Selection Cancelled", Toast.LENGTH_SHORT).show()
+        }
+    }*/
 
     val scope = rememberCoroutineScope()
 
@@ -177,11 +191,6 @@ fun ChatScreen(
                 onValueChange = { s -> chatViewModel.updateQuestion(s) },
                 chatEnabled = canUseChat,
                 sendButtonEnabled = question.trim().isNotBlank() && isIdle,
-                onImageClick = {
-                    val intent = Intent(Intent.ACTION_PICK)
-                    intent.type = "image/*"
-                    pickImageLauncher.launch(intent)
-                },
                 onSendButtonClick = {
                     chatViewModel.askQuestion()
                     focusManager.clearFocus()
@@ -452,6 +461,7 @@ fun ChatInputBox(
                 val bitmap = BitmapFactory.decodeStream(inputStream)
                 base64String = bitmapToBase64(bitmap)
                 Toast.makeText(context, "Image Selected", Toast.LENGTH_SHORT).show()
+                Log.d("Base64String", base64String)
                 // You can now send the base64String to the chat or pass it to the chatViewModel
             }
         }else {
