@@ -77,6 +77,17 @@ import com.hoshisato.eva.util.multiScrollStateSaver
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
+import android.app.Activity
+import android.content.Intent
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.provider.MediaStore
+import android.util.Base64
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import java.io.ByteArrayOutputStream
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChatScreen(
@@ -125,6 +136,19 @@ fun ChatScreen(
     val chatBubbleScrollStates = rememberSaveable(saver = multiScrollStateSaver) { DefaultHashMap<Int, ScrollState> { ScrollState(0) } }
 /*  val canEnableAICoreMode = rememberSaveable { checkAICoreAvailability(aiCorePackageInfo, privateComputePackageInfo) } */
 
+    val context = LocalContext.current
+    var base64String by remember { mutableStateOf("") }
+    val pickImageLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            result.data?.data?.let { uri ->
+                // you would then pass the uri to the viewmodel
+                chatViewModel.handleImageSelection(uri)
+            }
+        }
+    }
+
     val scope = rememberCoroutineScope()
 
     LaunchedEffect(isIdle) {
@@ -152,11 +176,16 @@ fun ChatScreen(
                 value = question,
                 onValueChange = { s -> chatViewModel.updateQuestion(s) },
                 chatEnabled = canUseChat,
-                sendButtonEnabled = question.trim().isNotBlank() && isIdle
-            ) {
-                chatViewModel.askQuestion()
-                focusManager.clearFocus()
-            }
+                sendButtonEnabled = question.trim().isNotBlank() && isIdle,
+                onImageClick = {
+                    val intent = Intent(Intent.ACTION_PICK)
+                    intent.type = "image/*"
+                    pickImageLauncher.launch(intent)
+                },
+                onSendButtonClick = {
+                    chatViewModel.askQuestion()
+                    focusManager.clearFocus()
+                })
         },
         floatingActionButton = {
             if (listState.canScrollForward) {
@@ -407,10 +436,28 @@ fun ChatInputBox(
     onValueChange: (String) -> Unit = {},
     chatEnabled: Boolean = true,
     sendButtonEnabled: Boolean = true,
-    onSendButtonClick: (String) -> Unit = {}
+    onSendButtonClick: (String) -> Unit = {},
+    onImageClick: () -> Unit = {} // Add the onImageClick parameter
 ) {
     val localStyle = LocalTextStyle.current
     val mergedStyle = localStyle.merge(TextStyle(color = LocalContentColor.current))
+    val context = LocalContext.current
+    var base64String by remember { mutableStateOf("") }
+
+    val pickImageLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            val imageUri = result.data?.data
+            imageUri?.let { uri ->
+                val inputStream = context.contentResolver.openInputStream(uri)
+                val bitmap = BitmapFactory.decodeStream(inputStream)
+                base64String = bitmapToBase64(bitmap)
+                Toast.makeText(context, "Image Selected", Toast.LENGTH_SHORT).show()
+                // You can now send the base64String to the chat or pass it to the chatViewModel
+            }
+        }else {
+            Toast.makeText(context, "Image Selection Cancelled", Toast.LENGTH_SHORT).show()
+        }
+    }
 
     Box(
         modifier = Modifier
@@ -437,6 +484,14 @@ fun ChatInputBox(
                         .padding(all = 8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
+                    IconButton(
+                        onClick = {
+                            val intent = Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI)
+                            pickImageLauncher.launch(intent)
+                        }
+                    ) {
+                        Text(" 📎 ")
+                    }
                     Box(
                         modifier = Modifier
                             .weight(1f)
@@ -461,6 +516,13 @@ fun ChatInputBox(
             }
         )
     }
+}
+
+private fun bitmapToBase64(bitmap: Bitmap): String {
+    val byteArrayOutputStream = ByteArrayOutputStream()
+    bitmap.compress(Bitmap.CompressFormat.JPEG, 100, byteArrayOutputStream)
+    val byteArray = byteArrayOutputStream.toByteArray()
+    return Base64.encodeToString(byteArray, Base64.DEFAULT)
 }
 
 @Composable
