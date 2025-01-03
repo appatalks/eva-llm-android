@@ -88,6 +88,24 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import java.io.ByteArrayOutputStream
 
+import android.Manifest
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
+import androidx.compose.ui.platform.LocalContext
+import com.hoshisato.eva.presentation.ui.main.MainActivity
+
+// Define a constant for the permission request code
+private const val READ_EXTERNAL_STORAGE_REQUEST = 100
+
+private fun bitmapToBase64(bitmap: Bitmap): String {
+    val byteArrayOutputStream = ByteArrayOutputStream()
+    bitmap.compress(Bitmap.CompressFormat.JPEG, 100, byteArrayOutputStream)
+    val byteArray = byteArrayOutputStream.toByteArray()
+    return Base64.encodeToString(byteArray, Base64.DEFAULT)
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChatScreen(
@@ -137,8 +155,8 @@ fun ChatScreen(
 /*  val canEnableAICoreMode = rememberSaveable { checkAICoreAvailability(aiCorePackageInfo, privateComputePackageInfo) } */
 
     val context = LocalContext.current
-    var base64String by remember { mutableStateOf("") }
-/*    val pickImageLauncher = rememberLauncherForActivityResult(
+/*    var base64String by remember { mutableStateOf("") }
+    val pickImageLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
         if (result.resultCode == Activity.RESULT_OK) {
@@ -162,6 +180,43 @@ fun ChatScreen(
             Toast.makeText(context, "Image Selection Cancelled", Toast.LENGTH_SHORT).show()
         }
     }*/
+
+    var base64String by remember { mutableStateOf("") }
+
+    val pickImageLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == android.app.Activity.RESULT_OK) {
+            result.data?.data?.let { uri ->
+                // Here you would call the chatViewModel to handle the URI
+                chatViewModel.handleImageSelection(uri)
+            }
+        }
+    }
+    fun startImagePicker() {
+        val intent = Intent(Intent.ACTION_PICK)
+        intent.type = "image/*"
+        pickImageLauncher.launch(intent)
+    }
+    // Function to check and request permission
+    fun checkAndRequestStoragePermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            if (ContextCompat.checkSelfPermission(context, Manifest.permission.READ_EXTERNAL_STORAGE)
+                != PackageManager.PERMISSION_GRANTED) {
+                ActivityCompat.requestPermissions(
+                    context as MainActivity,
+                    arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE),
+                    READ_EXTERNAL_STORAGE_REQUEST
+                )
+            } else {
+                // permission already granted, start image picking
+                startImagePicker()
+            }
+        } else {
+            // In devices below M permissions are granted at install time
+            startImagePicker()
+        }
+    }
 
     val scope = rememberCoroutineScope()
 
@@ -191,10 +246,18 @@ fun ChatScreen(
                 onValueChange = { s -> chatViewModel.updateQuestion(s) },
                 chatEnabled = canUseChat,
                 sendButtonEnabled = question.trim().isNotBlank() && isIdle,
+                onImageClick = {
+                    checkAndRequestStoragePermission()
+                    val intent = Intent(Intent.ACTION_PICK)
+                    intent.type = "image/*"
+                    pickImageLauncher.launch(intent)
+                },
                 onSendButtonClick = {
                     chatViewModel.askQuestion()
                     focusManager.clearFocus()
-                })
+                },
+               chatViewModel = chatViewModel // Pass the view model here
+            )
         },
         floatingActionButton = {
             if (listState.canScrollForward) {
@@ -206,6 +269,7 @@ fun ChatScreen(
             }
         },
         floatingActionButtonPosition = FabPosition.Center
+
     ) { innerPadding ->
         groupedMessages.forEach { (i, k) -> Log.d("grouped", "idx: $i, data: $k") }
         LazyColumn(
@@ -446,13 +510,13 @@ fun ChatInputBox(
     chatEnabled: Boolean = true,
     sendButtonEnabled: Boolean = true,
     onSendButtonClick: (String) -> Unit = {},
-    onImageClick: () -> Unit = {} // Add the onImageClick parameter
+    onImageClick: () -> Unit = {}, // Add the onImageClick parameter
+    chatViewModel: ChatViewModel // Pass the view model instance here
 ) {
     val localStyle = LocalTextStyle.current
     val mergedStyle = localStyle.merge(TextStyle(color = LocalContentColor.current))
     val context = LocalContext.current
     var base64String by remember { mutableStateOf("") }
-
     val pickImageLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         if (result.resultCode == Activity.RESULT_OK) {
             val imageUri = result.data?.data
@@ -463,12 +527,12 @@ fun ChatInputBox(
                 Toast.makeText(context, "Image Selected", Toast.LENGTH_SHORT).show()
                 Log.d("Base64String", base64String)
                 // You can now send the base64String to the chat or pass it to the chatViewModel
+                chatViewModel.updateImageString(base64String)
             }
         }else {
             Toast.makeText(context, "Image Selection Cancelled", Toast.LENGTH_SHORT).show()
         }
     }
-
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -528,12 +592,12 @@ fun ChatInputBox(
     }
 }
 
-private fun bitmapToBase64(bitmap: Bitmap): String {
+/*private fun bitmapToBase64(bitmap: Bitmap): String {
     val byteArrayOutputStream = ByteArrayOutputStream()
     bitmap.compress(Bitmap.CompressFormat.JPEG, 100, byteArrayOutputStream)
     val byteArray = byteArrayOutputStream.toByteArray()
     return Base64.encodeToString(byteArray, Base64.DEFAULT)
-}
+}*/
 
 @Composable
 fun ScrollToBottomButton(onClick: () -> Unit) {
