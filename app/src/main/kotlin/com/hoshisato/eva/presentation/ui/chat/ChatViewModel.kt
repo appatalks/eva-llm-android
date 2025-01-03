@@ -24,6 +24,10 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
+import android.net.Uri
+import android.util.Base64
+
+
 @HiltViewModel
 class ChatViewModel @Inject constructor(
     private val application: Application,
@@ -101,6 +105,10 @@ class ChatViewModel @Inject constructor(
     private val _geminiNanoMessage = MutableStateFlow(Message(chatId = chatRoomId, content = "", platformType = null))
     val geminiNanoMessage = _geminiNanoMessage.asStateFlow()
 
+    // New state for image base64 string
+    private val _imageString = MutableStateFlow("")
+    val imageString: StateFlow<String> = _imageString.asStateFlow()
+
     // Flows for assistant message streams
     private val openAIFlow = MutableSharedFlow<ApiState>()
     private val ollamaFlow = MutableSharedFlow<ApiState>()
@@ -114,6 +122,43 @@ class ChatViewModel @Inject constructor(
         fetchEnabledPlatformsInApp()
         observeFlow()
     }
+
+    fun handleImageSelection(uri: Uri) {
+        // Accessing the application context for content resolver
+        val context = application.applicationContext
+
+        try {
+            // Retrieve the input stream from the URI
+            val inputStream = context.contentResolver.openInputStream(uri)
+
+            if (inputStream != null) {
+                // Convert the stream to ByteArray
+                val byteArray = inputStream.readBytes()
+                inputStream.close()
+
+                // Encode the ByteArray to base64
+                val base64Image = Base64.encodeToString(byteArray, Base64.DEFAULT)
+
+                // **Get the MIME type**
+                val mimeType = context.contentResolver.getType(uri) ?: "image/jpeg"  // Default to jpeg if null
+
+                // Update the user message with the base64 image and the correct mime type
+                _userMessage.update {
+                    it.copy(
+                        content = "data:$mimeType;base64,$base64Image",
+                        createdAt = currentTimeStamp
+                    )
+                }
+
+                // Handle the base64 image
+                Log.d("Base64 Image", "Base64 string: $base64Image")
+            }
+        } catch (e: Exception) {
+            // Handle the exception of image loading.
+            Log.e("Image Error", "Error processing image: ${e.message}", e)
+        }
+    }
+
 
     fun askQuestion() {
         Log.d("Question: ", _question.value)
@@ -189,6 +234,11 @@ class ChatViewModel @Inject constructor(
         }
     }
 
+    // Function to update the image string
+    fun updateImageString(base64String: String) {
+        _imageString.update { base64String }
+    }
+
     fun updateChatTitle(title: String) {
         // Should be only used for changing chat title after the chatroom is created.
         if (_chatRoom.value.id > 0) {
@@ -255,6 +305,17 @@ class ChatViewModel @Inject constructor(
     }
 
     private fun completeChat() {
+        //Retrieve the image string and include it in the message
+        val currentImageString = _imageString.value
+        val questionWithImage = if (currentImageString.isNotBlank()) {
+            _userMessage.value.content + "\n[IMAGE]" + currentImageString
+        } else {
+            _userMessage.value.content
+        }
+        _userMessage.update { it.copy(content = questionWithImage) }
+        //Reset the image string to avoid sending the same image
+        _imageString.update{""}
+
         enabledPlatformsInChat.forEach { apiType -> updateLoadingState(apiType, LoadingState.Loading) }
         val enabledPlatforms = enabledPlatformsInChat.toSet()
 
